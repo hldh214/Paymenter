@@ -57,13 +57,11 @@ class DueDate extends Extension
 
     /**
      * Calculate the pro-rata ratio for a quarterly plan aligned to end of month.
-     * expires_at is set to the 1st of the next month at 00:00 so the last day of the month is fully included.
      * Standard period = actual calendar days in 3 months from base date.
      */
     private function calculateProrataRatio(Carbon $baseDate): array
     {
-        // Set expires_at to 1st of next month 00:00, so the entire last day of the month is covered
-        $newExpiresAt = $baseDate->copy()->addMonths(3)->endOfMonth()->addDay()->startOfDay();
+        $newExpiresAt = $baseDate->copy()->addMonths(3)->endOfMonth();
         $actualDays = $baseDate->copy()->startOfDay()->diffInDays($newExpiresAt);
         // Use the actual number of days in 3 calendar months as the standard period
         $standardDays = $baseDate->copy()->startOfDay()->diffInDays($baseDate->copy()->addMonths(3)->startOfDay());
@@ -196,8 +194,7 @@ class DueDate extends Extension
             $service = Service::find($serviceId);
             if ($service) {
                 $startDate = $info['base_date']->format('M d, Y');
-                // Display the last service day (expires_at minus 1 day) since expires_at is the 1st of next month
-                $endDate = $info['new_expires_at']->copy()->subDay()->format('M d, Y');
+                $endDate = $info['new_expires_at']->format('M d, Y');
                 $invoiceItem->description = $service->product->name . ' (' . $startDate . ' - ' . $endDate . ')';
             }
 
