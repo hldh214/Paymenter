@@ -118,6 +118,15 @@ class Checkout extends Component
             $setup_fee += $option->children->where('id', $this->configOptions[$option->id])->first()?->price(billing_period: $this->plan->billing_period, billing_unit: $this->plan->billing_unit)->setup_fee;
         });
 
+        // Allow extensions to adjust checkout pricing
+        $adjustments = event('checkout.pricing', [$this->product, $this->plan, $total, $setup_fee]);
+        foreach ($adjustments as $result) {
+            if (is_array($result)) {
+                $total = $result['total'] ?? $total;
+                $setup_fee = $result['setup_fee'] ?? $setup_fee;
+            }
+        }
+
         $this->total = new Price([
             'price' => $total,
             'currency' => $this->plan->price()->currency,

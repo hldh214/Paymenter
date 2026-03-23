@@ -76,6 +76,15 @@ class CartItem extends Model
                     $setup_fee += $option->children->where('id', $selected?->value)->first()?->price(billing_period: $this->plan->billing_period, billing_unit: $this->plan->billing_unit)->setup_fee;
                 });
 
+                // Allow extensions to adjust cart item pricing
+                $adjustments = event('checkout.pricing', [$this->product, $this->plan, $total, $setup_fee]);
+                foreach ($adjustments as $result) {
+                    if (is_array($result)) {
+                        $total = $result['total'] ?? $total;
+                        $setup_fee = $result['setup_fee'] ?? $setup_fee;
+                    }
+                }
+
                 $price = new Price([
                     'price' => $total,
                     'currency' => $this->plan->price()->currency,

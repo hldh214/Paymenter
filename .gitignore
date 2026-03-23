@@ -1,3 +1,4 @@
+cron.sh
 /.phpunit.cache
 /node_modules
 /public/default/*

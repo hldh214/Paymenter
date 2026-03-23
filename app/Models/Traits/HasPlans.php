@@ -22,7 +22,7 @@ trait HasPlans
     {
         $currency = $currency ?? session('currency', config('settings.default_currency'));
 
-        return $this->plans->filter(function ($plan) use ($currency) {
+        $plans = $this->plans->filter(function ($plan) use ($currency) {
             if ($plan->type === 'free') {
                 return true;
             }
@@ -32,6 +32,16 @@ trait HasPlans
                 return $query->where('currency_code', $currency);
             })->isNotEmpty();
         });
+
+        // Allow extensions to filter available plans
+        $filtered = event('plans.available', [$this, $plans]);
+        foreach ($filtered as $result) {
+            if ($result instanceof \Illuminate\Support\Collection) {
+                $plans = $result;
+            }
+        }
+
+        return $plans;
     }
 
     /**
