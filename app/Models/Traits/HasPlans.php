@@ -4,6 +4,7 @@ namespace App\Models\Traits;
 
 use App\Classes\Price;
 use App\Models\Plan;
+use Illuminate\Support\Collection;
 
 trait HasPlans
 {
@@ -36,7 +37,7 @@ trait HasPlans
         // Allow extensions to filter available plans
         $filtered = event('plans.available', [$this, $plans]);
         foreach ($filtered as $result) {
-            if ($result instanceof \Illuminate\Support\Collection) {
+            if ($result instanceof Collection) {
                 $plans = $result;
             }
         }
