@@ -3,7 +3,6 @@
 use App\Classes\Cart;
 use App\Helpers\ExtensionHelper;
 use Illuminate\Support\Facades\Facade;
-use Illuminate\Support\Facades\Redis;
 
 return [
 
@@ -166,7 +165,6 @@ return [
     ],
 
     'aliases' => Facade::defaultAliases()->merge([
-        'Redis' => Redis::class,
         'Cart' => Cart::class,
         'ExtensionHelper' => ExtensionHelper::class,
     ])->toArray(),
