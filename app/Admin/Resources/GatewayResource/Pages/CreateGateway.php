@@ -28,14 +28,22 @@ class CreateGateway extends CreateRecord
             return $record;
         }
 
-        foreach ($data['settings'] as $key => $value) {
+        $config = ExtensionHelper::getConfig($record->type, $record->extension);
+
+        foreach ($config as $option) {
+            $key = $option['name'];
+            $value = $data['settings'][$key] ?? null;
+
             if (is_null($value)) {
                 continue;
             }
+
             $record->settings()->updateOrCreate([
                 'key' => $key,
             ], [
-                'value' => $value,
+                'type' => $option['database_type'] ?? 'string',
+                'value' => is_array($value) ? json_encode($value) : $value,
+                'encrypted' => $option['encrypted'] ?? false,
             ]);
         }
 
