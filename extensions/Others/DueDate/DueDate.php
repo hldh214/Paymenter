@@ -5,17 +5,18 @@ namespace Paymenter\Extensions\Others\DueDate;
 use App\Classes\Extension\Extension;
 use App\Events\InvoiceItem\Creating as InvoiceItemCreating;
 use App\Events\Service\Created as ServiceCreated;
+use App\Events\Service\Updated as ServiceUpdated;
 use App\Models\Product;
 use App\Models\Service;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DueDate extends Extension
 {
     /**
-     * Track services that have been processed by this extension,
-     * so we can adjust their first invoice item accordingly.
+     * Track services processed in the current request (for invoice item description fix).
      *
      * @var array<int, array{prorata_ratio: float, new_expires_at: Carbon, base_date: Carbon}>
      */
@@ -74,18 +75,48 @@ class DueDate extends Extension
     }
 
     /**
+     * Store the aligned expires_at date in the service's properties (database-persisted).
+     */
+    private function storeAlignedExpiresAt(Service $service, Carbon $expiresAt): void
+    {
+        $service->properties()->updateOrCreate(
+            ['key' => 'duedate_aligned_expires_at'],
+            ['value' => $expiresAt->toDateTimeString(), 'name' => 'DueDate Aligned Expires At']
+        );
+    }
+
+    /**
+     * Retrieve the aligned expires_at date from the service's properties.
+     */
+    private function getAlignedExpiresAt(Service $service): ?Carbon
+    {
+        $prop = $service->properties()->where('key', 'duedate_aligned_expires_at')->first();
+        if ($prop) {
+            return Carbon::parse($prop->value);
+        }
+
+        return null;
+    }
+
+    /**
+     * Remove the aligned expires_at property after it has been consumed.
+     */
+    private function clearAlignedExpiresAt(Service $service): void
+    {
+        $service->properties()->where('key', 'duedate_aligned_expires_at')->delete();
+    }
+
+    /**
      * Boot the extension: register event listeners.
      */
     public function boot()
     {
         // 1. Hide monthly plans from frontend for products matching the category keyword.
-        //    Monthly plans are only used internally after the first quarterly period.
         Event::listen('plans.available', function ($product, $plans) {
             if (!($product instanceof Product) || !$this->matchesCategory($product)) {
                 return null;
             }
 
-            // Filter out monthly plans (billing_unit=month, billing_period=1)
             return $plans->filter(function ($plan) {
                 if ($plan->type === 'free' || $plan->type === 'one-time') {
                     return true;
@@ -106,7 +137,6 @@ class DueDate extends Extension
                 return null;
             }
 
-            // Only adjust quarterly plans
             if ($plan->billing_unit !== 'month' || $plan->billing_period !== 3) {
                 return null;
             }
@@ -129,7 +159,6 @@ class DueDate extends Extension
                 return;
             }
 
-            // Only handle quarterly plans (billing_unit = month, billing_period = 3)
             if ($plan->billing_unit !== 'month' || $plan->billing_period !== 3) {
                 return;
             }
@@ -139,13 +168,15 @@ class DueDate extends Extension
                 return;
             }
 
-            // Align expires_at to end of month, 3 months from creation date
             $baseDate = $service->created_at ? Carbon::parse($service->created_at) : Carbon::now();
             $prorata = $this->calculateProrataRatio($baseDate);
             $newExpiresAt = $prorata['new_expires_at'];
             $service->expires_at = $newExpiresAt;
 
-            // Store info so InvoiceItem\Creating listener can adjust the first invoice
+            // Persist the aligned date to database so it survives across HTTP requests
+            $this->storeAlignedExpiresAt($service, $newExpiresAt);
+
+            // Also keep in memory for same-request invoice item description fix
             $this->processedServices[$service->id] = [
                 'prorata_ratio' => $prorata['ratio'],
                 'new_expires_at' => $newExpiresAt,
@@ -172,7 +203,7 @@ class DueDate extends Extension
             $service->save();
         });
 
-        // 4. Listen for invoice item creation to adjust the first invoice's price and description.
+        // 4. Listen for invoice item creation to adjust the first invoice's description.
         Event::listen(InvoiceItemCreating::class, function (InvoiceItemCreating $event) {
             $invoiceItem = $event->invoiceItem;
 
@@ -187,10 +218,6 @@ class DueDate extends Extension
 
             $info = $this->processedServices[$serviceId];
 
-            // The invoice item price already comes from the cart's pro-rata calculated total,
-            // so we only need to fix the description — no price adjustment needed.
-
-            // Fix the description to show the correct date range
             $service = Service::find($serviceId);
             if ($service) {
                 $startDate = $info['base_date']->format('M d, Y');
@@ -199,9 +226,40 @@ class DueDate extends Extension
             }
 
             Log::info("[DueDate] Adjusted first invoice item description for Service #{$serviceId}, price: {$invoiceItem->price}");
+        });
 
-            // Clean up - only apply once
-            unset($this->processedServices[$serviceId]);
+        // 5. Listen for service updates to restore expires_at after payment activates the service.
+        //    When payment is processed (a separate HTTP request), RenewServiceService recalculates
+        //    expires_at using the (now monthly) plan, resulting in +1 month from now.
+        //    We read the correct date from the database (properties) and restore it.
+        Event::listen(ServiceUpdated::class, function (ServiceUpdated $event) {
+            $service = $event->service;
+
+            // Only act when service becomes active (payment completed)
+            if ($service->status !== Service::STATUS_ACTIVE) {
+                return;
+            }
+
+            // Check database for persisted aligned expires_at
+            $correctExpiresAt = $this->getAlignedExpiresAt($service);
+            if (!$correctExpiresAt) {
+                return;
+            }
+
+            // Check if expires_at was changed away from our correct value
+            if ($service->expires_at && $service->expires_at->format('Y-m-d') !== $correctExpiresAt->format('Y-m-d')) {
+                Log::info("[DueDate] Correcting expires_at for Service #{$service->id} from {$service->expires_at->toDateString()} back to {$correctExpiresAt->toDateString()}");
+
+                DB::table('services')
+                    ->where('id', $service->id)
+                    ->update(['expires_at' => $correctExpiresAt]);
+
+                // Also update the in-memory model
+                $service->expires_at = $correctExpiresAt;
+            }
+
+            // Clean up the property after successful correction
+            $this->clearAlignedExpiresAt($service);
         });
     }
 }
