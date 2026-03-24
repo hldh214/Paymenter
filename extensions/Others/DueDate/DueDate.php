@@ -9,8 +9,8 @@ use App\Events\Service\Updated as ServiceUpdated;
 use App\Models\Product;
 use App\Models\Service;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 
 class DueDate extends Extension
