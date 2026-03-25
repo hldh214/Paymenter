@@ -32,7 +32,7 @@ class DueDate extends Extension
     {
         return [
             [
-                'name' => 'category_keyword',
+                'name' => 'dd_category_keyword',
                 'label' => 'Category Keyword',
                 'type' => 'text',
                 'required' => false,
@@ -46,7 +46,7 @@ class DueDate extends Extension
      */
     private function matchesCategory(Product $product): bool
     {
-        $keyword = $this->config('category_keyword');
+        $keyword = $this->config('dd_category_keyword');
         if (empty($keyword)) {
             $keyword = 'Pro-rata';
         }

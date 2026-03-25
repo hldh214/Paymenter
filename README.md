@@ -106,6 +106,33 @@ Paymenter is an open-source billing platform tailored for hosting companies. It 
 - **No Docker** — Docker files and related CI workflows have been removed.
 - **No SSH required** — removed `update.sh` and other SSH-dependent tooling.
 - **Shared hosting friendly** — designed to work with FTP-only deployment and cPanel cron jobs.
+- **Bug fix: extension settings save** — `CreateServer` and `CreateGateway` now correctly persist `type`, `encrypted`, and JSON-encoded values for array/tags/multi-select config fields (upstream bug).
+
+### Custom Extensions
+
+This fork ships with the following custom extensions:
+
+#### DueDate (`extensions/Others/DueDate`)
+
+A "quarterly-to-monthly alignment" extension for pro-rata billing. When a user purchases a quarterly plan for a product whose category name contains a configurable keyword (default: "Pro-rata"), this extension:
+
+1. Hides monthly plans from the storefront (they are for internal renewal only).
+2. Adjusts checkout pricing to a pro-rata amount so the first period ends at the end of the month.
+3. On service creation, aligns `expires_at` to end-of-month and switches the service to a monthly plan for subsequent renewals.
+4. Persists the aligned expiration date and restores it after payment processing to prevent the renewal system from overwriting it.
+
+**Config:** `dd_category_keyword` — the keyword to match in the product category name.
+
+#### ManualFulfillment (`extensions/Servers/ManualFulfillment`)
+
+A server extension for manual provisioning. Designed for scenarios where the admin manually purchases a resource after user payment, then fills in credential fields (e.g. IP, Username, Password) via the admin panel.
+
+1. Admin defines arbitrary credential field names in the extension config using a tag input.
+2. On service creation (after payment), empty property placeholders are created for each field.
+3. Admin fills in the actual values via Admin > Services > [service] > Properties tab.
+4. The user sees all filled-in credentials on their service detail page.
+
+**Config:** `mf_credential_fields` — tag input defining the field names; `mf_auto_activate` — whether to auto-activate on creation.
 
 ## License
 
