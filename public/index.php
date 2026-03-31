@@ -3,6 +3,11 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
+// Handle Cloudflare's reverse proxy and ensure the correct client IP is used.
+if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+    $_SERVER['REMOTE_ADDR'] = $_SERVER['HTTP_CF_CONNECTING_IP'];
+}
+
 define('LARAVEL_START', microtime(true));
 
 // Determine if the application is in maintenance mode...
