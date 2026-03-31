@@ -62,10 +62,10 @@ class DueDate extends Extension
      */
     private function calculateProrataRatio(Carbon $baseDate): array
     {
-        $newExpiresAt = $baseDate->copy()->addMonths(3)->endOfMonth();
+        $newExpiresAt = $baseDate->copy()->addMonthsNoOverflow(3)->endOfMonth();
         $actualDays = $baseDate->copy()->startOfDay()->diffInDays($newExpiresAt);
         // Use the actual number of days in 3 calendar months as the standard period
-        $standardDays = $baseDate->copy()->startOfDay()->diffInDays($baseDate->copy()->addMonths(3)->startOfDay());
+        $standardDays = $baseDate->copy()->startOfDay()->diffInDays($baseDate->copy()->addMonthsNoOverflow(3)->startOfDay());
 
         return [
             'ratio' => $actualDays / $standardDays,
