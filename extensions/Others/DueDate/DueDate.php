@@ -195,7 +195,10 @@ class DueDate extends Extension
                 $service->plan_id = $monthlyPlan->id;
                 $service->unsetRelation('plan');
 
-                Log::info("[DueDate] Quarterly->Monthly alignment applied. Service #{$service->id}, expires_at: {$newExpiresAt->toDateString()}, switched to monthly plan #{$monthlyPlan->id}");
+                // Recalculate service price based on the monthly plan
+                $service->price = $service->calculatePrice();
+
+                Log::info("[DueDate] Quarterly->Monthly alignment applied. Service #{$service->id}, expires_at: {$newExpiresAt->toDateString()}, switched to monthly plan #{$monthlyPlan->id}, price updated to: {$service->price}");
             } else {
                 Log::warning("[DueDate] No monthly plan found for product #{$product->id}. Only aligned expires_at for Service #{$service->id} to {$newExpiresAt->toDateString()}");
             }
