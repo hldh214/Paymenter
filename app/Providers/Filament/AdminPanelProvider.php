@@ -52,7 +52,7 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Blue,
             ])
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
-            ->favicon(config('settings.favicon') ? Storage::url(config('settings.favicon')) : null)
+            ->favicon(config('settings.favicon') ? Storage::url(config('settings.favicon')) : '/favicon.ico')
             ->brandLogo(config('settings.logo') ? Storage::url(config('settings.logo')) : null)
             ->darkModeBrandLogo(config('settings.logo_dark') ? Storage::url(config('settings.logo_dark')) : null)
             ->brandName(config('settings.logo') || config('settings.logo_dark') ? null : config('app.name'))
