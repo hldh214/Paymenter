@@ -59,8 +59,9 @@ class Checkout extends Component
             }
             $this->checkoutConfig = (array) $item->checkout_config;
         } else {
-            // Set the first plan as default
-            $this->plan = $this->plan_id ? $this->product->plans->findOrFail($this->plan_id) : $this->product->plans->first();
+            // Set the first plan as default (use availablePlans to respect extension filtering)
+            $availablePlans = $this->product->availablePlans();
+            $this->plan = $this->plan_id ? ($availablePlans->firstWhere('id', $this->plan_id) ?? $availablePlans->first()) : $availablePlans->first();
             $this->plan_id = $this->plan->id;
 
             // Prepare the config options
@@ -87,7 +88,7 @@ class Checkout extends Component
 
         // As there is only one plan, config options and checkout config, we can directly call the checkout method to avoid confusion
         // This is only done when the user is not editing the cart item
-        if ($this->product->plans->count() === 1 && empty($this->configOptions) && empty($this->checkoutConfig)) {
+        if ($this->product->availablePlans()->count() === 1 && empty($this->configOptions) && empty($this->checkoutConfig)) {
             $this->checkout();
         }
     }
@@ -137,7 +138,8 @@ class Checkout extends Component
     // On change of the plan, update the config options
     public function updatedPlanId($value)
     {
-        $this->plan = Plan::findOrFail($value);
+        $plan = $this->product->availablePlans()->firstWhere('id', $value);
+        $this->plan = $plan ?? Plan::findOrFail($value);
         $this->updatePricing();
     }
 
